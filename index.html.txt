@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Comfort Dispenser</title>
+    <!-- Load Tailwind CSS from CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Inter font -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f1e8; /* Soft cream/canvas color, Van Gogh feel */
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+
+        /* Styling for the central "Sunburst" button and container */
+        #taskDrawButton {
+            /* Radial gradient for a painted, sun-like core */
+            background: radial-gradient(circle, #ffc300 0%, #fcd34d 70%, #fbbf24 100%); 
+            /* Layered shadow to mimic swirling light/brushstrokes */
+            box-shadow: 0 0 0 8px rgba(255, 230, 0, 0.2), 0 0 0 16px rgba(255, 230, 0, 0.1), 0 0 20px rgba(0, 0, 0, 0.5); 
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        #taskDrawButton:hover {
+            /* Increased shadow on hover for extra glow */
+            box-shadow: 0 0 0 8px rgba(255, 230, 0, 0.4), 0 0 0 16px rgba(255, 230, 0, 0.2), 0 0 30px rgba(0, 0, 0, 0.7);
+        }
+        #taskDrawButton:active {
+            transform: scale(0.95);
+        }
+
+        /* Task Card Pop-out animation */
+        .task-card-enter {
+            opacity: 0;
+            transform: scale(0.7) translateY(20px);
+        }
+        .task-card-enter-active {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+            transition: opacity 0.5s, transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        /* Task Card Complete animation (Visual Reward) */
+        .task-complete {
+            animation: complete-burst 0.3s ease-out;
+            background-color: #e6ffe6 !important; /* Very light green */
+            border-color: #38761d !important; /* Strong green */
+        }
+
+        @keyframes complete-burst {
+            /* Burst using the dark green color for the reward */
+            0% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0 rgba(56, 118, 29, 0.7); }
+            50% { transform: scale(1.03); opacity: 1; box-shadow: 0 0 0 10px rgba(56, 118, 29, 0); }
+            100% { transform: scale(1); opacity: 0; }
+        }
+
+        /* Hide the initial element before JS load */
+        [x-cloak] { display: none; }
+    </style>
+</head>
+<body>
+
+    <div id="app" class="w-full max-w-xl bg-white rounded-xl shadow-2xl p-6 md:p-10 border border-gray-100 flex flex-col items-center">
+        <header class="mb-8 text-center w-full">
+            <!-- Deep GREEN header color for contrast (formerly indigo-900) -->
+            <h1 class="text-4xl font-extrabold text-[#38761d]">The Comfort Dispenser</h1>
+            <p class="text-gray-600 mt-2">A low-energy way to find a gentle task.</p>
+        </header>
+
+        <!-- Main Interaction Area (Task Dispenser) -->
+        <div class="relative w-full max-w-xs mb-10 h-64 flex justify-center items-center">
+
+            <!-- Task Card Display Area -->
+            <div id="taskCardContainer" class="absolute w-full pointer-events-none flex justify-center items-center">
+                <!-- Task card will be injected here -->
+            </div>
+
+            <!-- Button/Sunflower Core -->
+            <button
+                id="taskDrawButton"
+                class="w-48 h-48 rounded-full shadow-2xl flex items-center justify-center text-center p-4"
+                title="Click to draw a random comfort task"
+            >
+                <!-- Deep GREEN text inside the yellow sun (formerly indigo-900) -->
+                <span class="text-xl font-extrabold text-[#38761d] leading-tight">Give me a Super-simple Task</span>
+            </button>
+        </div>
+        
+        <!-- The custom task form has been removed entirely from the HTML. -->
+        
+    </div>
+
+    <!-- Tone.js for auditory reward -->
+    <script src="https://unpkg.com/tone@14.8.49/build/Tone.js"></script>
+
+    <script>
+        const STORAGE_KEY = 'comfortChecklistTasks';
+
+        // Pre-set tasks (full list)
+        const initialTasks = [
+            "Put on fuzzy socks", "Listen to one calming song", "Stare at the sky for 5 minutes",
+            "Sip a warm drink", "Look out a window and describe one thing you see",
+            "Stretch your arms above your head", "Drink a glass of water",
+            "Cuddle a blanket or a pet for 30 seconds", "Write down one good thing that happened today",
+            "Light a candle or use a diffuser", "Check your shoulders (and intentionally drop them)",
+            "Do two minutes of deep, box breathing", "Open a window for 60 seconds of fresh air",
+            "Put on comfortable pajamas or loungewear", "Send a nice text to a friend or family member",
+            "Gently rub your temples or hands together", "Organize one small area (e.g., clear a mug or plate)",
+            "Read one page of a physical book or magazine", "Listen to a funny podcast clip",
+            "Watch a short animal video (under 60 seconds)",
+            "Make a simple list of three things you like about your room",
+            "Change your screen's brightness or color temperature",
+            "Spray a favorite, comforting scent", "Curl up in a sunny spot for a moment",
+            // --- 30 New Tasks Added Below ---
+            "Run your hands under warm water for 1 minute",
+            "Write down something you're grateful for",
+            "Hum or whistle a simple tune for 30 seconds",
+            "Stand up and gently sway side-to-side",
+            "Make eye contact with yourself in the mirror and smile",
+            "Do 5 gentle neck rolls (slowly!)",
+            "Look at something green outside",
+            "Wiggle your toes inside your shoes/socks",
+            "Change your background image or phone wallpaper",
+            "Give yourself a gentle hand or arm massage",
+            "Listen to the quietest sound you can hear",
+            "Close your eyes and focus on your breath for 6 deep breaths",
+            "Doodle or draw a simple shape (a circle, a star)",
+            "Find something soft near you and touch it",
+            "Wipe down one small surface (e.g., your mouse or phone screen)",
+            "Eat a small, single comforting food item (e.g., a piece of chocolate)",
+            "Write down a single positive affirmation",
+            "Imagine a calming place for 60 seconds",
+            "Put on your favorite pair of glasses or sunglasses",
+            "Look through old photos for one minute",
+            "Do a small, simple favor for someone else (virtual or real)",
+            "Play with a fidget toy or pen for one minute",
+            "Open your mouth wide and yawn deeply (fake it if you have to!)",
+            "Brush your hair or teeth gently",
+            "Lightly trace the outline of your hand on a surface",
+            "Plan one super low-key activity for later",
+            "Think of a happy memory and stay there for 30 seconds",
+            "Send a sticker or GIF to a friend without context",
+            "Turn down the volume on your device by one notch",
+            "Put on a fresh layer of lip balm or hand cream"
+        ];
+
+        let tasks = [];
+        let currentTask = null; // Track the task currently displayed
+
+        const taskDrawButton = document.getElementById('taskDrawButton');
+        const taskCardContainer = document.getElementById('taskCardContainer');
+        // Removed: addTaskForm and newTaskInput references
+
+
+        // --- Utility Functions ---
+
+        // Tone.js for sound reward
+        const synth = new Tone.MembraneSynth({
+            oscillator: { type: "square" },
+            envelope: { attack: 0.005, decay: 0.2, sustain: 0.01, release: 0.1 }
+        }).toDestination();
+
+        function playTick() {
+            if (Tone.context.state !== 'running') {
+                Tone.start().then(() => { synth.triggerAttackRelease("C3", "16n"); });
+            } else {
+                synth.triggerAttackRelease("C3", "16n");
+            }
+        }
+
+        /**
+         * Saves the current task list to localStorage.
+         */
+        function saveTasks() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+                updateButtonState(); 
+            } catch (e) {
+                console.error("Could not save tasks to localStorage:", e);
+            }
+        }
+
+        /**
+         * Loads tasks from localStorage or initializes with default tasks.
+         */
+        function loadTasks() {
+            try {
+                const storedTasks = localStorage.getItem(STORAGE_KEY);
+                
+                // Map of all default task texts for easy checking
+                const defaultTaskSet = new Set(initialTasks);
+
+                if (storedTasks) {
+                    let parsedTasks = JSON.parse(storedTasks);
+                    
+                    // 1. Filter out any previously saved *custom* tasks, as we no longer support them.
+                    //    Only keep tasks that are in the new default set.
+                    tasks = parsedTasks.filter(task => defaultTaskSet.has(task.text));
+                    
+                    // 2. Add any new default tasks that are missing from the current list.
+                    const storedTaskTexts = new Set(tasks.map(t => t.text));
+                    const newDefaultTasks = initialTasks.filter(text => !storedTaskTexts.has(text));
+                    
+                    newDefaultTasks.forEach(text => {
+                        tasks.push({
+                            id: crypto.randomUUID(),
+                            text: text,
+                            completed: false
+                        });
+                    });
+                    
+                    saveTasks(); // Save the standardized list structure
+                    
+                } else {
+                    // Initialize with the full set of pre-set tasks, uncompleted.
+                    tasks = initialTasks.map(text => ({
+                        id: crypto.randomUUID(),
+                        text: text,
+                        completed: false
+                    }));
+                    saveTasks(); // Save initial structure
+                }
+            } catch (e) {
+                console.error("Could not load tasks from localStorage:", e);
+                // Fallback to initial if loading fails
+                tasks = initialTasks.map(text => ({
+                    id: crypto.randomUUID(),
+                    text: text,
+                    completed: false
+                }));
+            }
+        }
+
+        /**
+         * Updates the state and text of the main Draw button.
+         */
+        function updateButtonState() {
+            const remaining = tasks.filter(t => !t.completed).length;
+            
+            // Check if all tasks are complete
+            if (remaining === 0) {
+                taskDrawButton.disabled = true;
+                taskDrawButton.innerHTML = '<span class="text-xl font-extrabold text-[#38761d] leading-tight">All tasks completed!</span>';
+            } else {
+                taskDrawButton.disabled = false;
+                taskDrawButton.innerHTML = '<span class="text-xl font-extrabold text-[#38761d] leading-tight">Give me a Super-simple Task</span>';
+            }
+        }
+
+
+        /**
+         * Draws a random uncompleted task and displays it.
+         */
+        function drawRandomTask() {
+            // Check if a task is already displayed
+            if (currentTask) return; 
+
+            const uncompletedTasks = tasks.filter(t => !t.completed);
+
+            if (uncompletedTasks.length === 0) {
+                // Modified message since customization is removed
+                taskCardContainer.innerHTML = '<p class="text-gray-500 text-center">All default tasks completed! Try refreshing the page to uncheck them all.</p>';
+                taskDrawButton.disabled = true;
+                return;
+            }
+
+            // Pick a random task
+            const randomIndex = Math.floor(Math.random() * uncompletedTasks.length);
+            const task = uncompletedTasks[randomIndex];
+            currentTask = task; // Set the current active task
+
+            // Hide the button and show the card container
+            taskDrawButton.style.opacity = '0';
+            taskDrawButton.style.pointerEvents = 'none';
+
+            displayTaskCard(task);
+        }
+
+        /**
+         * Creates and animates the task card.
+         * @param {object} task - The task object to display.
+         */
+        function displayTaskCard(task) {
+            const card = document.createElement('div');
+            card.className = 'w-full max-w-xs bg-white p-6 rounded-xl shadow-lg border border-gray-200 task-card-enter pointer-events-auto';
+            
+            card.innerHTML = `
+                <p class="text-xl font-semibold text-gray-800 text-center mb-4">${task.text}</p>
+                <div class="flex justify-center">
+                    <!-- Strong green button color (same as main header/add button) -->
+                    <button id="doneButton" class="bg-[#38761d] text-white p-3 px-6 rounded-full font-bold hover:bg-green-800 transition duration-150 shadow-md">
+                        Done!
+                    </button>
+                </div>
+            `;
+
+            taskCardContainer.innerHTML = '';
+            taskCardContainer.appendChild(card);
+            
+            // Trigger the pop-out animation
+            setTimeout(() => {
+                card.classList.remove('task-card-enter');
+                card.classList.add('task-card-enter-active');
+            }, 10);
+
+            document.getElementById('doneButton').onclick = markTaskComplete;
+        }
+
+        /**
+         * Marks the current task as complete, plays reward, and hides the card.
+         */
+        function markTaskComplete() {
+            if (!currentTask) return;
+
+            const index = tasks.findIndex(t => t.id === currentTask.id);
+            if (index !== -1) {
+                tasks[index].completed = true;
+                saveTasks();
+                playTick();
+
+                const cardEl = taskCardContainer.querySelector('div');
+                cardEl.classList.remove('task-card-enter-active');
+                cardEl.classList.add('task-complete');
+                
+                // Wait for the animation to finish, then clean up
+                setTimeout(() => {
+                    taskCardContainer.innerHTML = '';
+                    currentTask = null; // Clear the active task
+
+                    // Restore the button
+                    taskDrawButton.style.opacity = '1';
+                    taskDrawButton.style.pointerEvents = 'auto';
+
+                    updateButtonState(); // Update the button state
+                }, 400); 
+            }
+        }
+        
+        // Removed: addTask function
+
+        // --- Event Listeners and Initialization ---
+
+        taskDrawButton.addEventListener('click', drawRandomTask);
+
+        // Removed: addTaskForm event listener
+
+        // Initialize the application
+        window.onload = function() {
+            loadTasks();
+            updateButtonState();
+
+            // Setup Tone.js context on first interaction (required by browsers)
+            document.addEventListener('click', function() {
+                if (Tone.context.state !== 'running') {
+                    Tone.start().catch(err => console.error("Audio Context failed to start:", err));
+                }
+            }, { once: true });
+        };
+
+    </script>
+</body>
+</html>
