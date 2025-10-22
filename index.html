@@ -74,7 +74,8 @@
         </header>
 
         <!-- Main Interaction Area (Task Dispenser) -->
-        <div class="relative w-full max-w-xs mb-10 h-64 flex justify-center items-center">
+        <!-- UPDATED: Reduced bottom margin from mb-10 to mb-5, and mobile height from h-64 to h-52 -->
+        <div class="relative w-full max-w-xs mb-5 h-52 md:h-64 flex justify-center items-center">
 
             <!-- Task Card Display Area -->
             <div id="taskCardContainer" class="absolute w-full pointer-events-none flex justify-center items-center">
@@ -161,16 +162,23 @@
         // --- Utility Functions ---
 
         // Tone.js for sound reward
-        const synth = new Tone.MembraneSynth({
-            oscillator: { type: "square" },
-            envelope: { attack: 0.005, decay: 0.2, sustain: 0.01, release: 0.1 }
+        // UPDATED: Changed from MembraneSynth (percussive) to a soft, sine-wave Synth (chime-like)
+        const synth = new Tone.Synth({
+            oscillator: { type: "sine" }, // Use a pure sine wave for a soft, gentle tone
+            envelope: { 
+                attack: 0.05, 
+                decay: 0.8, // Increased decay time
+                sustain: 0.1, 
+                release: 1.0 // Increased release time for a long, calming fade-out
+            }
         }).toDestination();
 
         function playTick() {
             if (Tone.context.state !== 'running') {
-                Tone.start().then(() => { synth.triggerAttackRelease("C3", "16n"); });
+                // Play a higher, more pleasant note (G4) over a short, calming duration (1 second)
+                Tone.start().then(() => { synth.triggerAttackRelease("G4", "1s"); }); 
             } else {
-                synth.triggerAttackRelease("C3", "16n");
+                synth.triggerAttackRelease("G4", "1s");
             }
         }
 
@@ -366,3 +374,4 @@
     </script>
 </body>
 </html>
+
